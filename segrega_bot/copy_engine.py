@@ -2,6 +2,7 @@
 from typing import Dict, List, Tuple
 import os
 import shutil
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def _same_drive(a: str, b: str) -> bool:
@@ -75,6 +76,8 @@ def copy_plan(
     """
     results: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
     dest_cache: Dict[str, Dict[str, int]] = {}  # dest_dir -> {fname: size}
+    used_dirs: Dict[str, str] = {}
+    used_dirs_lock = threading.Lock()
 
     def task_for_pdf(pdf_path: str, collabs: List[str]):
         created, skipped = [], []
@@ -85,7 +88,23 @@ def copy_plan(
         fname = os.path.basename(pdf_path)
 
         for collab in collabs:   # sequência por PDF
-            dest_dir = os.path.join(out_root, _sanitize_folder(collab))
+            sanitized = _sanitize_folder(collab)
+
+            with used_dirs_lock:
+                final_sanitized = sanitized
+                existing = used_dirs.get(final_sanitized)
+                if existing is not None and existing != collab:
+                    idx = 2
+                    while True:
+                        candidate = f"{sanitized}-{idx}"
+                        existing_candidate = used_dirs.get(candidate)
+                        if existing_candidate is None or existing_candidate == collab:
+                            final_sanitized = candidate
+                            break
+                        idx += 1
+                used_dirs[final_sanitized] = collab
+
+            dest_dir = os.path.join(out_root, final_sanitized)
             _ensure_dir(dest_dir)
 
             if dest_dir not in dest_cache:
