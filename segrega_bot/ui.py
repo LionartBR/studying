@@ -129,6 +129,7 @@ class App(tk.Tk):
 
         self.var_report = tk.BooleanVar(value=True)
         self.var_open_rep = tk.BooleanVar(value=False)
+        self.var_clear_cache = tk.BooleanVar(value=True)
 
         ttk.Checkbutton(frm_rep, text="Gerar Excel", variable=self.var_report).grid(row=0, column=0, sticky="w")
         self.f_report = PathField(
@@ -162,6 +163,12 @@ class App(tk.Tk):
         self.lbl_conflicts = ttk.Label(grid_ind, text="Conflitos: 0", style='Muted.TLabel')
         for i, w in enumerate([self.lbl_total, self.lbl_colabs, self.lbl_found, self.lbl_nomatch, self.lbl_conflicts]):
             w.grid(row=0, column=i, sticky="w")
+
+        ttk.Checkbutton(
+            frm_run,
+            text="Limpar cache ao finalizar",
+            variable=self.var_clear_cache
+        ).grid(row=2, column=0, sticky="w")
 
         self.log = ScrolledText(frm_run, height=9, state='normal')
         self.log.grid(row=3, column=0, sticky="nsew", pady=(6, 6))
@@ -334,6 +341,9 @@ class App(tk.Tk):
             dst = Path(self.f_dst.get()) if self.f_dst.get() else Path.cwd()
             p = dst / p
         return str(p)
+
+    def should_clear_cache(self) -> bool:
+        return bool(self.var_clear_cache.get())
 
     def _open_report(self):
         p = self.get_report_path()
