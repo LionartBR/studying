@@ -75,8 +75,6 @@ def copy_plan(
     """
     results: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
     dest_cache: Dict[str, Dict[str, int]] = {}  # dest_dir -> {fname: size}
-    locks: Dict[str, threading.Lock] = {}
-    used_dirs: Dict[str, str]
 
     def task_for_pdf(pdf_path: str, collabs: List[str]):
         created, skipped = [], []
@@ -90,16 +88,14 @@ def copy_plan(
             dest_dir = os.path.join(out_root, _sanitize_folder(collab))
             _ensure_dir(dest_dir)
 
-            lock = locks.setdefault(dest_dir, threading.Lock())
-            with lock:
-                if dest_dir not in dest_cache:
-                    dest_cache[dest_dir] = _scan_dir_sizes(dest_dir)
-                cache_sizes = dest_cache[dest_dir]
+            if dest_dir not in dest_cache:
+                dest_cache[dest_dir] = _scan_dir_sizes(dest_dir)
+            cache_sizes = dest_cache[dest_dir]
 
-                status, final_path = _resolve_conflict(dest_dir, fname, fsize, cache_sizes)
-                if status == "skip_same":
-                    skipped.append((collab, "same name & size"))
-                    continue
+            status, final_path = _resolve_conflict(dest_dir, fname, fsize, cache_sizes)
+            if status == "skip_same":
+                skipped.append((collab, "same name & size"))
+                continue
 
             try:
                 if _same_drive(pdf_path, dest_dir):

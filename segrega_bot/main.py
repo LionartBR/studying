@@ -1,5 +1,5 @@
 # main.py
-import os, csv, threading
+import os, threading
 from pathlib import Path
 from typing import List, Dict
 
@@ -22,11 +22,13 @@ def load_names(txt_path: str) -> List[str]:
     return out
 
 def scan_pdfs(src_dir: str) -> List[str]:
+    """Return all PDF file paths found under ``src_dir`` in deterministic order."""
     pdfs = []
     for root, _, files in os.walk(src_dir):
         for f in files:
             if f.lower().endswith(".pdf"):
                 pdfs.append(os.path.join(root, f))
+    pdfs.sort()
     return pdfs
 
 # -------- controller --------
@@ -66,8 +68,11 @@ class Controller:
             self._pause.wait(timeout=0.2)
 
     def _worker(self):
+        clear_cache = True
+        dst_dir = ""
         try:
             txt_path, src_dir, dst_dir = self.ui.get_paths()
+            clear_cache = self.ui.should_clear_cache()
             report_path = self.ui.get_report_path()
 
             names = load_names(txt_path)
@@ -116,8 +121,14 @@ class Controller:
 
             if self._cancel.is_set():
                 self.ui.ui_log("Cancelado antes das cópias.")
-                # Purga cache mesmo assim, conforme pedido
-                purge_cache(dst_dir)
+                if clear_cache:
+                    try:
+                        purge_cache(dst_dir)
+                        self.ui.ui_log("Cache (.cache_distcolab) removido.")
+                    except Exception:
+                        pass
+                else:
+                    self.ui.ui_log("Cache mantido conforme preferência do usuário.")
                 self.ui.ui_on_finish(None)
                 return
 
@@ -129,6 +140,7 @@ class Controller:
             result = copy_plan(plan, dst_dir, max_workers=2)
             conflicts = 0
             created_map = {}
+            reason_map = {}
             progress = 0
 
             # Também montamos o manifest (linhas planas)
@@ -150,6 +162,7 @@ class Controller:
                     self.ui.ui_step()
                 for collab, reason in res.get("skipped", []):
                     conflicts += 1
+                    reason_map[(collab, pdf_path)] = reason
                     manifest_rows.append({
                         "source_path": pdf_path,
                         "source_name": src_name,
@@ -174,6 +187,7 @@ class Controller:
                             "collaborator": collab,
                             "source_path": pdf_path,
                             "created_path": created_map.get((collab, pdf_path), ""),
+                            "status": reason_map.get((collab, pdf_path), "created"),
                         })
 
             # -------- Atualiza contadores --------
@@ -182,28 +196,32 @@ class Controller:
                                   found=found, nomatch=len(files_no_match), conflicts=conflicts)
 
             # -------- Relatório --------
-            final_report = None            
+            final_report = None
             
             if report_path:
+                if report_path:
                 try:
-                    final_report = write_distribution_report(
-                        report_path=report_path,
-                        collaborators=names,
-                        rows=rows,
-                        not_found_collabs=not_found_collabs,
-                        files_no_match=files_no_match,
-                        manifest_rows=manifest_rows,
-                    )
-                    self.ui.ui_log(f"Relatório salvo em: {final_report}")
-                except Exception as e:
-                    self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
+                        final_report = write_distribution_report(
+                            report_path=report_path,
+                            collaborators=names,
+                            rows=rows,
+                            not_found_collabs=not_found_collabs,
+                            files_no_match=files_no_match,
+                            manifest_rows=manifest_rows,
+                        )
+                        self.ui.ui_log(f"Relatório salvo em: {final_report}")
+                    except Exception as e:
+                        self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
 
             # -------- Purga cache ao final --------
-            try:
-                purge_cache(dst_dir)
-                self.ui.ui_log("Cache (.cache_distcolab) removido.")
-            except Exception:
-                pass
+            if clear_cache:
+                try:
+                    purge_cache(dst_dir)
+                    self.ui.ui_log("Cache (.cache_distcolab) removido.")
+                except Exception:
+                    pass
+            else:
+                self.ui.ui_log("Cache mantido conforme preferência do usuário.")
 
             self.ui.ui_on_finish(final_report)
 
@@ -211,8 +229,10 @@ class Controller:
             self.ui.ui_log(f"[ERRO FATAL] {e}")
             # tentativa de purgar cache mesmo em falha
             try:
-                _, _, dst_dir = self.ui.get_paths()
-                purge_cache(dst_dir)
+                if not dst_dir:
+                    _, _, dst_dir = self.ui.get_paths()
+                if clear_cache and dst_dir:
+                    purge_cache(dst_dir)
             except Exception:
                 pass
             self.ui.ui_on_finish(None)

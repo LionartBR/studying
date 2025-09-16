@@ -1,5 +1,8 @@
 # ui.py
 import os
+import subprocess
+import sys
+import webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -7,6 +10,29 @@ from tkinter.scrolledtext import ScrolledText
 
 APP_TITLE = "CEFGD - BOT DE DISTRIBUIÇÃO"
 DEFAULT_REPORT_NAME = "relatorio_distribuicao.xlsx"
+
+
+def open_path(path):
+    """Abre um arquivo ou diretório de acordo com o sistema operacional."""
+    target = str(path)
+    if not target:
+        raise ValueError("Caminho vazio.")
+
+    if sys.platform.startswith('win'):
+        os.startfile(target)
+        return True
+
+    try:
+        subprocess.Popen(['xdg-open', target])
+        return True
+    except (FileNotFoundError, OSError):
+        pass
+
+    if webbrowser.open(target):
+        return True
+
+    raise RuntimeError(f"Não foi possível abrir o caminho: {target}")
+
 
 # ---------- Widgets compostos ----------
 class PathField(ttk.Frame):
@@ -66,9 +92,9 @@ class PathField(ttk.Frame):
         p = Path(path)
         try:
             if p.is_dir():
-                os.startfile(p)
+                open_path(p)
             elif p.exists():
-                os.startfile(p.parent)
+                open_path(p.parent)
         except Exception as e:
             messagebox.showerror("Erro", f"Não foi possível abrir: {e}")
 
@@ -267,8 +293,6 @@ class App(tk.Tk):
         self.after(0, _apply)
 
     def ui_on_finish(self, report_path: str | None):
-        from pathlib import Path
-        import os
         def _apply():
             self.ui_log("Concluído!")
 
@@ -283,7 +307,7 @@ class App(tk.Tk):
             if report_path and Path(report_path).exists():
                 if self.var_open_rep.get():
                     try:
-                        os.startfile(report_path)
+                        open_path(report_path)
                     except Exception:
                         pass
                 self.btn_open_report.configure(state='normal')
@@ -343,7 +367,7 @@ class App(tk.Tk):
         P = Path(p)
         if P.exists():
             try:
-                os.startfile(P)
+                open_path(P)
             except Exception as e:
                 messagebox.showerror("Erro", f"Não foi possível abrir o relatório:\n{e}")
         else:
