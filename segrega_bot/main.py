@@ -182,20 +182,21 @@ class Controller:
                                   found=found, nomatch=len(files_no_match), conflicts=conflicts)
 
             # -------- Relatório --------
-            final_report = None            
+            final_report = None
 
-            try:
-                final_report = write_distribution_report(
-                    report_path=report_path,
-                    collaborators=names,
-                    rows=rows,
-                    not_found_collabs=not_found_collabs,
-                    files_no_match=files_no_match,
-                    manifest_rows=manifest_rows,
-                )
-                self.ui.ui_log(f"Relatório salvo em: {final_report}")
-            except Exception as e:
-                self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
+            if report_path:
+                try:
+                    final_report = write_distribution_report(
+                        report_path=report_path,
+                        collaborators=names,
+                        rows=rows,
+                        not_found_collabs=not_found_collabs,
+                        files_no_match=files_no_match,
+                        manifest_rows=manifest_rows,
+                    )
+                    self.ui.ui_log(f"Relatório salvo em: {final_report}")
+                except Exception as e:
+                    self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
 
             # -------- Purga cache ao final --------
             try:
