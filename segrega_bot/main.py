@@ -1,4 +1,3 @@
-# main.py
 import os, threading
 from pathlib import Path
 from typing import List, Dict

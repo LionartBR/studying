@@ -1,6 +1,6 @@
 # Aho–Corasick para busca de "palavra inteira" com verificação de fronteiras.
 from typing import Dict, List, Set, Tuple
-import ahocorasick  # pacote: pyahocorasick
+import ahocorasick 
 from util_normalize import is_word_char
 
 def build_automaton(canon_by_display: Dict[str, str]):
