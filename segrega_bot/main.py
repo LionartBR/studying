@@ -198,8 +198,7 @@ class Controller:
             # -------- Relatório --------
             final_report = None
             
-            if report_path:
-                if report_path:
+            if report_path:                
                 try:
                         final_report = write_distribution_report(
                             report_path=report_path,
@@ -210,7 +209,7 @@ class Controller:
                             manifest_rows=manifest_rows,
                         )
                         self.ui.ui_log(f"Relatório salvo em: {final_report}")
-                    except Exception as e:
+                except Exception as e:
                         self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
 
             # -------- Purga cache ao final --------
