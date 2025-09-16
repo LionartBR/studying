@@ -1,6 +1,6 @@
 # export_project_to_txt.py
 # -*- coding: utf-8 -*-
-"""
+r"""
 Converte cada arquivo texto/código do projeto em um .txt com o mesmo conteúdo,
 espelhando a árvore de diretórios. Ignora .venv e __pycache__.
 

@@ -1,7 +1,8 @@
 # copy_engine.py
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import os
 import shutil
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def _same_drive(a: str, b: str) -> bool:
@@ -65,7 +66,8 @@ def _sanitize_folder(name: str) -> str:
 def copy_plan(
     plan: Dict[str, List[str]],
     out_root: str,
-    max_workers: int = 2
+    max_workers: int = 2,
+    cancel_event: Optional[threading.Event] = None,
 ) -> Dict[str, Dict[str, List[Tuple[str, str]]]]:
     """
     plan: { pdf_path: [ 'Colab A', 'Colab B', ... ] }
@@ -76,6 +78,31 @@ def copy_plan(
     results: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
     dest_cache: Dict[str, Dict[str, int]] = {}  # dest_dir -> {fname: size}
 
+    sanitized_by_name: Dict[str, str] = {}
+    used_sanitized: set[str] = set()
+
+    def _alloc_folder(name: str) -> str:
+        if name in sanitized_by_name:
+            return sanitized_by_name[name]
+        base = _sanitize_folder(name)
+        cand = base
+        suffix = 2
+        key = cand.casefold()
+        while key in used_sanitized:
+            cand = f"{base}_{suffix}"
+            suffix += 1
+            key = cand.casefold()
+        sanitized_by_name[name] = cand
+        used_sanitized.add(key)
+        return cand
+
+    for collabs in plan.values():
+        for collab in collabs:
+            _alloc_folder(collab)
+
+    def _should_cancel() -> bool:
+        return bool(cancel_event and cancel_event.is_set())
+
     def task_for_pdf(pdf_path: str, collabs: List[str]):
         created, skipped = [], []
         try:
@@ -84,8 +111,16 @@ def copy_plan(
             fsize = -1
         fname = os.path.basename(pdf_path)
 
-        for collab in collabs:   # sequência por PDF
-            dest_dir = os.path.join(out_root, _sanitize_folder(collab))
+        if _should_cancel():
+            skipped.extend((collab, "cancelled") for collab in collabs)
+            return (pdf_path, {"created": created, "skipped": skipped})
+
+        for idx, collab in enumerate(collabs):   # sequência por PDF
+            if _should_cancel():
+                skipped.extend((c, "cancelled") for c in collabs[idx:])
+                break
+
+            dest_dir = os.path.join(out_root, sanitized_by_name[collab])
             _ensure_dir(dest_dir)
 
             if dest_dir not in dest_cache:
