@@ -136,7 +136,8 @@ class Controller:
             self.ui.ui_log(f"Iniciando cópias/links ({total_copy_ops} destinos)…")
             self.ui.ui_set_progress_total(max(1, total_copy_ops))
 
-            result = copy_plan(plan, dst_dir, max_workers=2)
+            result = copy_plan(plan, dst_dir, max_workers=2, cancel_event=self._cancel)
+            cancelled_during_copy = self._cancel.is_set()
             conflicts = 0
             created_map = {}
             reason_map = {}
@@ -160,7 +161,8 @@ class Controller:
                     progress += 1
                     self.ui.ui_step()
                 for collab, reason in res.get("skipped", []):
-                    conflicts += 1
+                    if reason != "cancelled":
+                        conflicts += 1
                     reason_map[(collab, pdf_path)] = reason
                     manifest_rows.append({
                         "source_path": pdf_path,
@@ -193,6 +195,19 @@ class Controller:
             found = sum(1 for collab in names if files_by_collab.get(collab))
             self.ui.ui_set_counts(total=len(pdf_paths), colabs=len(names),
                                   found=found, nomatch=len(files_no_match), conflicts=conflicts)
+
+            if cancelled_during_copy:
+                self.ui.ui_log("Cancelado durante as cópias.")
+                if clear_cache:
+                    try:
+                        purge_cache(dst_dir)
+                        self.ui.ui_log("Cache (.cache_distcolab) removido.")
+                    except Exception:
+                        pass
+                else:
+                    self.ui.ui_log("Cache mantido conforme preferência do usuário.")
+                self.ui.ui_on_finish(None)
+                return
 
             # -------- Relatório --------
             final_report = None

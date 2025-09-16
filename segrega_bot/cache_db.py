@@ -1,6 +1,8 @@
 # Cache incremental por arquivo PDF
-import shutil, time, uuid, os, json, time, stat
+import shutil, time, uuid, os, json, stat
 from typing import Dict, Any, Optional
+
+from pdf_reader import extract_first_two_pages_hash
 
 def _cache_dir(out_root: str) -> str:
     d = os.path.join(out_root, ".cache_distcolabs")
@@ -34,7 +36,20 @@ def is_unchanged(path: str, cache: Dict[str, Any]) -> bool:
         return False
     key = os.path.abspath(path)
     info = cache.get(key)
-    return bool(info and info.get("mtime") == st.st_mtime and info.get("size") == st.st_size)
+    if not info:
+        return False
+    if info.get("mtime") != st.st_mtime or info.get("size") != st.st_size:
+        return False
+
+    cached_hash = info.get("first2_hash")
+    if cached_hash is None:
+        return False
+
+    try:
+        current_hash = extract_first_two_pages_hash(path)
+    except Exception:
+        return False
+    return current_hash == cached_hash
 
 def update_cache_entry(out_root: str, cache: Dict[str, Any], path: str, first2_hash: str, names: list):
     try:
