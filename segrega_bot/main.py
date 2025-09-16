@@ -66,8 +66,11 @@ class Controller:
             self._pause.wait(timeout=0.2)
 
     def _worker(self):
+        clear_cache = True
+        dst_dir = ""
         try:
             txt_path, src_dir, dst_dir = self.ui.get_paths()
+            clear_cache = self.ui.should_clear_cache()
             report_path = self.ui.get_report_path()
 
             names = load_names(txt_path)
@@ -116,8 +119,14 @@ class Controller:
 
             if self._cancel.is_set():
                 self.ui.ui_log("Cancelado antes das cópias.")
-                # Purga cache mesmo assim, conforme pedido
-                purge_cache(dst_dir)
+                if clear_cache:
+                    try:
+                        purge_cache(dst_dir)
+                        self.ui.ui_log("Cache (.cache_distcolab) removido.")
+                    except Exception:
+                        pass
+                else:
+                    self.ui.ui_log("Cache mantido conforme preferência do usuário.")
                 self.ui.ui_on_finish(None)
                 return
 
@@ -199,11 +208,14 @@ class Controller:
                     self.ui.ui_log(f"[ERRO] Falha ao salvar relatório: {e}")
 
             # -------- Purga cache ao final --------
-            try:
-                purge_cache(dst_dir)
-                self.ui.ui_log("Cache (.cache_distcolab) removido.")
-            except Exception:
-                pass
+            if clear_cache:
+                try:
+                    purge_cache(dst_dir)
+                    self.ui.ui_log("Cache (.cache_distcolab) removido.")
+                except Exception:
+                    pass
+            else:
+                self.ui.ui_log("Cache mantido conforme preferência do usuário.")
 
             self.ui.ui_on_finish(final_report)
 
@@ -211,8 +223,10 @@ class Controller:
             self.ui.ui_log(f"[ERRO FATAL] {e}")
             # tentativa de purgar cache mesmo em falha
             try:
-                _, _, dst_dir = self.ui.get_paths()
-                purge_cache(dst_dir)
+                if not dst_dir:
+                    _, _, dst_dir = self.ui.get_paths()
+                if clear_cache and dst_dir:
+                    purge_cache(dst_dir)
             except Exception:
                 pass
             self.ui.ui_on_finish(None)
