@@ -22,11 +22,13 @@ def load_names(txt_path: str) -> List[str]:
     return out
 
 def scan_pdfs(src_dir: str) -> List[str]:
+    """Return all PDF file paths found under ``src_dir`` in deterministic order."""
     pdfs = []
     for root, _, files in os.walk(src_dir):
         for f in files:
             if f.lower().endswith(".pdf"):
                 pdfs.append(os.path.join(root, f))
+    pdfs.sort()
     return pdfs
 
 # -------- controller --------
