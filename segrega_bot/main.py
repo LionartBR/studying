@@ -140,6 +140,7 @@ class Controller:
             result = copy_plan(plan, dst_dir, max_workers=2)
             conflicts = 0
             created_map = {}
+            reason_map = {}
             progress = 0
 
             # Também montamos o manifest (linhas planas)
@@ -161,6 +162,7 @@ class Controller:
                     self.ui.ui_step()
                 for collab, reason in res.get("skipped", []):
                     conflicts += 1
+                    reason_map[(collab, pdf_path)] = reason
                     manifest_rows.append({
                         "source_path": pdf_path,
                         "source_name": src_name,
@@ -185,6 +187,7 @@ class Controller:
                             "collaborator": collab,
                             "source_path": pdf_path,
                             "created_path": created_map.get((collab, pdf_path), ""),
+                            "status": reason_map.get((collab, pdf_path), "created"),
                         })
 
             # -------- Atualiza contadores --------
