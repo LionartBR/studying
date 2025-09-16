@@ -56,21 +56,22 @@ def write_distribution_report(
     # Aba principal
     ws = wb.active
     ws.title = "Relatório de Distribuição"
-    ws.append(["Colaborador", "Documento (origem)", "Arquivo criado", "Caminho do arquivo criado"])
+    ws.append(["Colaborador", "Documento (origem)", "Arquivo criado", "Caminho do arquivo criado", "Status"])
 
     for r in rows:
         collab = r.get("collaborator", "")
         src = r.get("source_path", "")
         dst = r.get("created_path", "")
+        status = r.get("status", "")
 
         src_name = os.path.basename(src) if src else ""
-        created_name = os.path.basename(dst) if dst else "duplicata - ignorada"
+        created_name = os.path.basename(dst) if dst else "-"
         created_path_out = dst if dst else "-"
 
-        ws.append([collab, src_name, created_name, created_path_out])
+        ws.append([collab, src_name, created_name, created_path_out, status])
 
     for collab in not_found_collabs:
-        ws.append([collab, "colaborador não localizado", "-", "-"])
+        ws.append([collab, "colaborador não localizado", "-", "-", ""])
 
     _autosize(ws)
 
